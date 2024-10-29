@@ -268,63 +268,47 @@
         const formData = new FormData(e.target);
         loadingDiv.style.display = "block";
         resultDiv.style.display = "none";
-        resultDiv.textContent = "";
-        downloadButton.style.display = "none";
+
+        // Replace with your Vercel production URL
+        const apiUrl = "https://your-vercel-deployment-url/api/analyze"; 
 
         try {
-          const response = await fetch("/analyze", {
+          const response = await fetch(apiUrl, {
             method: "POST",
             body: formData,
           });
-          const data = await response.json();
-          if (data.result) {
-            analysisResult = data.result;
-            analysisImage = data.image;
-            resultDiv.innerHTML =
-              "<h3>Analysis Result:</h3><p>" +
-              analysisResult.replace(/\n/g, "<br>") +
-              "</p>";
-            resultDiv.style.display = "block";
-            downloadButton.style.display = "block";
-          } else if (data.error) {
-            resultDiv.textContent = "Error: " + data.error;
-            resultDiv.style.display = "block";
+
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
           }
+
+          analysisResult = await response.json();
+          analysisImage = analysisResult.image; // Assuming the response contains the image URL
+          displayResults();
         } catch (error) {
-          resultDiv.textContent = "Error: " + error.message;
-          resultDiv.style.display = "block";
+          console.error("Error:", error);
+          resultDiv.innerText = "An error occurred while processing the image.";
         } finally {
           loadingDiv.style.display = "none";
         }
       });
 
-      downloadButton.addEventListener("click", async () => {
-  const response = await fetch("/download", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      result: analysisResult,
-      image: analysisImage,
-    }),
-  });
+      function displayResults() {
+        resultDiv.innerHTML = `
+          <h3>Analysis Result:</h3>
+          <p><strong>Species:</strong> ${analysisResult.species || "N/A"}</p>
+          <p><strong>Health:</strong> ${analysisResult.health || "N/A"}</p>
+          <p><strong>Care Recommendations:</strong> ${analysisResult.recommendations || "N/A"}</p>
+          <img src="${analysisImage}" alt="Analysis Result" style="max-width: 100%; border-radius: 8px;" />
+        `;
 
-  if (response.ok) {
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Plant_Analysis_Report.pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } else {
-    const errorData = await response.json(); // Get the error response
-    console.error("Error response from server:", errorData); // Log the error
-    alert("Failed to generate and download the PDF report: " + errorData.error);
-  }
-});
+        downloadButton.style.display = "block";
+        downloadButton.onclick = () => {
+          // Logic to download PDF report
+          const pdfUrl = analysisResult.pdfUrl; // Assuming the PDF URL is in the response
+          window.open(pdfUrl, "_blank");
+        };
+      }
     </script>
   </body>
 </html>
